@@ -49,9 +49,9 @@ function Add() {
 }
 
 function X() {
-    Count *= 2;
+    Count *= 1.25;
     CountText.innerText = Count;
-    CurrentScore *= 2;
+    CurrentScore *= 1.25;
     CurrentScoreCount.innerText = CurrentScore;
     updateHighScore();
 }
