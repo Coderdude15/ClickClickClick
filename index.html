@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="html" href="Leaderboard.html">
+</head>
+<body>
+    <audio id="multiplySound" src="https://www.soundjay.com/button/beep-07.mp3" preload="auto"></audio>
+  
+    <div id="multiplyTimer" style="position: fixed; top: 10px; left: 10px; font-size: 32px; font-weight: bold; background-color: rgba(255,255,255,0.9); padding: 10px 15px; border-radius: 8px; z-index: 1000;">
+      Multiply in: calculating...
+    </div>
+
+
+    
+    <h1>Click this button to count:</h1>
+    <h1 id="Count" class="Count">0</h1>
+    <h1 class="LeaderboardText">Click here to see <a href="Leaderboard.html">Leaderboard</a></h1>
+
+    <div class="Current">
+        <h1 id="CurrentScore" class="CurrentScore">Current score: </h1>
+        <h1 id="CurrentScoreCounter" class="CurrentScoreCounter">0</h1>
+    </div>
+    
+    <div class="High">
+        <h1 id="HighScore" class="HighScore">High score: </h1>
+        <h1 id="HighScoreCounter" class="HighScoreCounter">0</h1>
+    </div>
+
+    <button id="AddBtn" class="AddBtn" onclick="Add()">Add</button><br><br>
+    <button id="XBtn" class="XBtn" onclick="X()">Multiply</button>
+    
+    
+
+
+    
+    <h2>Submit your score</h2>
+    <input type="text" id="usernameInput" placeholder="Enter username" />
+    <button onclick="handleScoreSubmit()">Submit Score</button>
+    <p id="submitStatus"></p>
+
+    
+    <script src="Count.js"></script>
+
+    
+    <!-- Firebase App (the core Firebase SDK) -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
+
+    <!-- Firebase Realtime Database -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-database-compat.js"></script>
+
+    <script>
+      const firebaseConfig = {
+        apiKey: "AIzaSyC0lC1S6unGubGU6fQcgvd0qnOYz_pGa_Q",
+        authDomain: "leaderboard-65f6e.firebaseapp.com",
+        databaseURL: "https://leaderboard-65f6e-default-rtdb.firebaseio.com",
+        projectId: "leaderboard-65f6e",
+        storageBucket: "leaderboard-65f6e.firebasestorage.appspot.com",
+        messagingSenderId: "515120673437",
+        appId: "1:515120673437:web:63e2df3edc463bdfdd9a74"
+      };
+
+      firebase.initializeApp(firebaseConfig);
+      const db = firebase.database();
+    </script>
+
+    <script>
+
+  function submitScore(username, score) {
+  const user = firebase.auth().currentUser;
+  if (!user) {
+    console.error("User not authenticated");
+    return;
+  }
+
+  const uid = user.uid;
+  const entry = {
+    username: username,
+    score: score,
+    uid: uid
+  };
+
+  firebase.database().ref(`leaderboard/${uid}`).set(entry);
+}
+
+  function fetchLeaderboard() {
+    db.ref('leaderboard').orderByChild('score').limitToLast(1000).once('value', snapshot => {
+      const scores = [];
+      snapshot.forEach(childSnapshot => {
+        scores.push(childSnapshot.val());
+      });
+
+      // Sort scores descending
+      scores.reverse();
+
+      // Display on page
+      const leaderboardDiv = document.createElement('div');
+      leaderboardDiv.innerHTML = "<h2>Top 1000 Leaderboard</h2>";
+
+      scores.forEach((entry, index) => {
+        const p = document.createElement('p');
+        p.textContent = `#${index + 1}: ${entry.username} - ${entry.score}`;
+        leaderboardDiv.appendChild(p);
+      });
+
+      document.body.appendChild(leaderboardDiv);
+    });
+  }
+</script>
+  
+
+    <script>
+function handleScoreSubmit() {
+  const username = document.getElementById("usernameInput").value.trim();
+  const status = document.getElementById("submitStatus");
+
+  console.log("Submitting score...");
+
+  if (!username) {
+    status.textContent = "Please enter a name.";
+    return;
+  }
+
+  submitScore(username, CurrentScore);
+  status.textContent = "Score submitted!";
+  document.getElementById("usernameInput").value = "";
+}
+
+</script>
+
+<script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-auth-compat.js"></script>
+<script>
+  firebase.auth().signInAnonymously()
+    .then(() => {
+      console.log("Signed in anonymously");
+    })
+    .catch((error) => {
+      console.error("Auth error:", error);
+    });
+</script>
+
+
+</body>
+</html>
