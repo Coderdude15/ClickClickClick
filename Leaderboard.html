@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Leaderboard</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      padding: 20px;
+    }
+
+    h1 {
+      margin-bottom: 20px;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 20px;
+    }
+
+    th, td {
+      padding: 12px;
+      border: 1px solid #ccc;
+      text-align: left;
+    }
+
+    th {
+      background-color: #f2f2f2;
+    }
+
+    tr:nth-child(even) {
+      background-color: #fafafa;
+    }
+  </style>
+</head>
+<body>
+  <h1>Leaderboard</h1>
+  <table id="leaderboardTable">
+    <thead>
+      <tr>
+        <th>Rank</th>
+        <th>Username</th>
+        <th>Score</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr><td colspan="3">Loading leaderboard...</td></tr>
+    </tbody>
+  </table>
+
+  <!-- Firebase App -->
+  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
+  <!-- Firebase Realtime Database -->
+  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-database-compat.js"></script>
+
+  <script>
+    const firebaseConfig = {
+      apiKey: "AIzaSyC0lC1S6unGubGU6fQcgvd0qnOYz_pGa_Q",
+      authDomain: "leaderboard-65f6e.firebaseapp.com",
+      databaseURL: "https://leaderboard-65f6e-default-rtdb.firebaseio.com",
+      projectId: "leaderboard-65f6e",
+      storageBucket: "leaderboard-65f6e.firebasestorage.app",
+      messagingSenderId: "515120673437",
+      appId: "1:515120673437:web:63e2df3edc463bdfdd9a74"
+    };
+
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.database();
+
+    function fetchLeaderboard() {
+      db.ref('leaderboard')
+        .orderByChild('score')
+        .limitToLast(1000)
+        .once('value', snapshot => {
+          const scores = [];
+          snapshot.forEach(childSnapshot => {
+            scores.push(childSnapshot.val());
+          });
+
+          scores.reverse(); // Highest scores first
+
+          const tableBody = document.querySelector("#leaderboardTable tbody");
+          tableBody.innerHTML = "";
+
+          if (scores.length === 0) {
+            tableBody.innerHTML = "<tr><td colspan='3'>No scores yet.</td></tr>";
+            return;
+          }
+
+          scores.forEach((entry, index) => {
+            const row = document.createElement("tr");
+            row.innerHTML = `
+              <td>${index + 1}</td>
+              <td>${entry.username}</td>
+              <td>${entry.score}</td>
+            `;
+            tableBody.appendChild(row);
+          });
+        });
+    }
+
+    fetchLeaderboard();
+  </script>
+</body>
+</html>
