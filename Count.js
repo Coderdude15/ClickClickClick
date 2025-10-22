@@ -3,6 +3,7 @@ let XBtn = document.getElementById("XBtn");
 let CountText = document.getElementById("Count");
 let CurrentScoreCount = document.getElementById("CurrentScoreCounter");
 let HighScoreCount = document.getElementById("HighScoreCounter");
+let XSound = document.getElementById("multiplySound");
 
 // Start with Multiply button hidden
 XBtn.style.display = "none";
@@ -49,10 +50,10 @@ function Add() {
 }
 
 function X() {
-    Count *= 1.25;
-    CountText.innerText = Count;
-    CurrentScore *= 1.25;
-    CurrentScoreCount.innerText = CurrentScore;
+    Count *= 1.2;
+    CountText.innerText = Math.floor(Count);
+    CurrentScore *= 1.2;
+    CurrentScoreCount.innerText = Math.floor(CurrentScore);
     updateHighScore();
 }
 
@@ -77,6 +78,16 @@ function handleScoreSubmit() {
 
 // Sound element
 const multiplySound = document.getElementById("multiplySound");
+
+// ✅ Unlock sound on first user interaction
+document.addEventListener("click", () => {
+    multiplySound.play().then(() => {
+        multiplySound.pause();
+        multiplySound.currentTime = 0;
+    }).catch((e) => {
+        console.warn("Initial sound unlock failed:", e);
+    });
+}, { once: true });
 
 // Timer display element
 const timerDisplay = document.getElementById("multiplyTimer");
@@ -127,8 +138,10 @@ function scheduleMultiplyButton() {
         timerDisplay.textContent = "Multiply is available!";
         console.log("🔔 Multiply button SHOWN!");
 
-        // Play sound
-        multiplySound.play();
+        // ✅ Play the multiply sound
+        multiplySound.play().catch((e) => {
+            console.warn("Multiply sound could not play:", e);
+        });
 
         const visibleDuration = getRandomSecondsInMs(10, 15); // 10–15 sec
 
@@ -143,5 +156,5 @@ function scheduleMultiplyButton() {
     }, delayToShow);
 }
 
-// Start the cycle
+// Start the multiply button cycle
 scheduleMultiplyButton();
