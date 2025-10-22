@@ -4,6 +4,9 @@ let CountText = document.getElementById("Count");
 let CurrentScoreCount = document.getElementById("CurrentScoreCounter");
 let HighScoreCount = document.getElementById("HighScoreCounter");
 
+// Start with Multiply button hidden
+XBtn.style.display = "none";
+
 let Count = 0;
 let CurrentScore = 0;
 let HighScore = 0;
@@ -43,8 +46,6 @@ function Add() {
     CurrentScore += 2;
     CurrentScoreCount.innerText = CurrentScore;
     updateHighScore();
-    
-
 }
 
 function X() {
@@ -58,23 +59,21 @@ function X() {
 // Run on page load
 loadHighScore();
 
-
 function handleScoreSubmit() {
-  const username = document.getElementById("usernameInput").value.trim();
-  const status = document.getElementById("submitStatus");
+    const username = document.getElementById("usernameInput").value.trim();
+    const status = document.getElementById("submitStatus");
 
-  console.log("Submitting score...");
+    console.log("Submitting score...");
 
-  if (!username) {
-    status.textContent = "Please enter a name.";
-    return;
-  }
+    if (!username) {
+        status.textContent = "Please enter a name.";
+        return;
+    }
 
-  submitScore(username, CurrentScore);
-  status.textContent = "Score submitted!";
-  document.getElementById("usernameInput").value = "";
+    submitScore(username, CurrentScore);
+    status.textContent = "Score submitted!";
+    document.getElementById("usernameInput").value = "";
 }
-
 
 // Sound element
 const multiplySound = document.getElementById("multiplySound");
@@ -94,7 +93,7 @@ function getRandomMinutesInMs(minMinutes, maxMinutes) {
 // Utility: Get random time in milliseconds between min and max seconds
 function getRandomSecondsInMs(minSeconds, maxSeconds) {
     const min = minSeconds * 1000;
-    const max = minSeconds * 1000;
+    const max = maxSeconds * 1000;
     return Math.floor(Math.random() * (max - min + 1)) + min;
 }
 
@@ -124,6 +123,7 @@ function scheduleMultiplyButton() {
     setTimeout(() => {
         // Show button
         XBtn.style.display = "inline-block";
+        clearInterval(countdownInterval);
         timerDisplay.textContent = "Multiply is available!";
         console.log("🔔 Multiply button SHOWN!");
 
@@ -137,7 +137,7 @@ function scheduleMultiplyButton() {
             XBtn.style.display = "none";
             console.log("❌ Multiply button HIDDEN.");
 
-            // Schedule next
+            // Schedule next appearance
             scheduleMultiplyButton();
         }, visibleDuration);
     }, delayToShow);
