@@ -16,10 +16,9 @@
     <button id="buyAutoClicker">Buy</button>
   </div>
 
-  <!-- ✅ +5 Click Bonus -->
   <div class="shop-item">
     <h3>+5 Clicks per Click</h3>
-    <p>Cost: 100 points</p>
+    <p>Cost depends on duration</p>
     <label>Duration:</label>
     <select id="bonus5Duration">
       <option value="600000">10 Minutes</option>
@@ -29,10 +28,9 @@
     <button id="buyPlus5">Buy</button>
   </div>
 
-  <!-- ✅ +10 Click Bonus -->
   <div class="shop-item">
     <h3>+10 Clicks per Click</h3>
-    <p>Cost: 2100 points</p>
+    <p>Cost depends on duration</p>
     <label>Duration:</label>
     <select id="bonus10Duration">
       <option value="600000">10 Minutes</option>
@@ -52,15 +50,7 @@
     <h3>Choose a Background</h3>
     <select id="bgSelect">
       <option value="none">Default</option>
-      <option value="url('https://www.bing.com/th/id/OIP.aS_yDtNCIJLqlcPuI7y0rgHaEi?w=244&h=211&c=8&rs=1&qlt=90&o=6&pid=3.1&rm=2')" disabled>Horse 🌄 5 Nonillion Score</option>
-      <option value="url('https://www.bing.com/th/id/OIP.SEQxKxB57gtr0c2PkL-7YAHaEK?w=245&h=211&c=8&rs=1&qlt=90&o=6&pid=3.1&rm=2')" disabled>Space 🌌 5 Nonillion Score</option>
-      <option value="url('https://wallpaperaccess.com/full/9154972.jpg')" disabled>Forest (Unlocks at 10M Score)</option>
-      <option value="url('https://th.bing.com/th/id/OIP.Uth3s5_Fgfjkpt8YOaxsegHaE8?w=266&h=180&c=7&r=0&o=7&pid=1.7&rm=3')" disabled>Beach 🏖️ (Unlocks at 10T Score)</option>
-      <option value="url('https://th.bing.com/th/id/OIP.2tsnfkHgN4O2g3sm-djHygHaEo?w=269&h=180&c=7&r=0&o=7&pid=1.7&rm=3')" disabled>Mountains (Unlocks at 100M Score)</option>
-      <option value="url('https://www.bing.com/th/id/OIP.P24SlQLbEdsv-9mNMts4lwHaEo?w=245&h=211&c=8&rs=1&qlt=90&o=6&pid=3.1&rm=2')" disabled>Desert 🌵 (Unlocks at 10M Score)</option>
-      <option value="url('https://www.bing.com/th/id/OIP.fdx8T_9tIuNVk5HBDZW32QHaEJ?w=247&h=211&c=8&rs=1&qlt=90&o=6&pid=1.7&rm=3')" disabled>Cityscape 🌆 (Unlocks at 1B Score)</option>
     </select>
-
     <button id="applyBackground">Apply Background</button>
   </div>
 
@@ -71,29 +61,18 @@
       let currentScore = parseInt(localStorage.getItem("gameScore")) || 0;
       document.getElementById("playerPoints").innerText = currentScore;
 
-      const purchased = localStorage.getItem("backgroundPurchased") === "true";
-      if (purchased) document.getElementById("bgPicker").style.display = "block";
-
-      // Unlock backgrounds based on score
-      const score = parseFloat(localStorage.getItem("gameScore")) || 0;
-      if (score >= 5e31) {
-        document.querySelector('#bgSelect option[value="url(\'https://www.bing.com/th/id/OIP.aS_yDtNCIJLqlcPuI7y0rgHaEi?w=244&h=211&c=8&rs=1&qlt=90&o=6&pid=3.1&rm=2\')"]').disabled = false;
-        document.querySelector('#bgSelect option[value="url(\'https://www.bing.com/th/id/OIP.SEQxKxB57gtr0c2PkL-7YAHaEK?w=245&h=211&c=8&rs=1&qlt=90&o=6&pid=3.1&rm=2\')"]').disabled = false;
+      if (localStorage.getItem("backgroundPurchased") === "true") {
+        document.getElementById("bgPicker").style.display = "block";
       }
-      if (score >= 1e7) document.querySelector('#bgSelect option[value="url(\'https://wallpaperaccess.com/full/9154972.jpg\')"]').disabled = false;
-      if (score >= 5e15) document.querySelector('#bgSelect option[value="url(\'https://th.bing.com/th/id/OIP.Uth3s5_Fgfjkpt8YOaxsegHaE8?w=266&h=180&c=7&r=0&o=7&pid=1.7&rm=3\')"]').disabled = false;
-      if (score >= 1e8) document.querySelector('#bgSelect option[value="url(\'https://th.bing.com/th/id/OIP.2tsnfkHgN4O2g3sm-djHygHaEo?w=269&h=180&c=7&r=0&o=7&pid=1.7&rm=3\')"]').disabled = false;
-      if (score >= 1e7) document.querySelector('#bgSelect option[value="url(\'https://www.bing.com/th/id/OIP.P24SlQLbEdsv-9mNMts4lwHaEo?w=245&h=211&c=8&rs=1&qlt=90&o=6&pid=3.1&rm=2\')"]').disabled = false;
-      if (score >= 1e9) document.querySelector('#bgSelect option[value="url(\'https://www.bing.com/th/id/OIP.fdx8T_9tIuNVk5HBDZW32QHaEJ?w=247&h=211&c=8&rs=1&qlt=90&o=6&pid=1.7&rm=3\')"]').disabled = false;
 
       setInitialBackground();
     });
 
     function setInitialBackground() {
-      let bg = localStorage.getItem("selectedBackground");
-      if (!bg || bg === "none") {
-        document.body.style.backgroundImage = "url('https://th.bing.com/th/id/OIP.sOvyBWSIX6YhVGKVRtOIpQHaEK?w=299&h=150&c=6&o=7&pid=1.7&rm=3')";
-      } else document.body.style.backgroundImage = bg;
+      const bg = localStorage.getItem("selectedBackground");
+      document.body.style.backgroundImage = bg && bg !== "none"
+        ? bg
+        : "url('https://th.bing.com/th/id/OIP.sOvyBWSIX6YhVGKVRtOIpQHaEK?w=299&h=150&c=6&o=7&pid=1.7&rm=3')";
     }
 
     function buyItem(itemName, cost) {
@@ -104,26 +83,25 @@
       localStorage.setItem("gameScore", currentScore);
       document.getElementById("playerPoints").innerText = currentScore;
 
-      let inventory = JSON.parse(localStorage.getItem("Inventory")) || [];
+      const inventory = JSON.parse(localStorage.getItem("Inventory")) || [];
       inventory.push(itemName);
       localStorage.setItem("Inventory", JSON.stringify(inventory));
 
       if (itemName === "autoClicker") {
-        alert("✅ Auto Clicker purchased! It will activate once you return to the game.");
         localStorage.setItem("autoClickerPending", "true");
+        alert("✅ Auto Clicker purchased!");
       }
 
       if (itemName === "plus5") chooseClickBonus(5);
       if (itemName === "plus10") chooseClickBonus(10);
 
       if (itemName === "background") {
-        alert("🎨 Background selector unlocked!");
         localStorage.setItem("backgroundPurchased", "true");
         document.getElementById("bgPicker").style.display = "block";
+        alert("🎨 Background selector unlocked!");
       }
     }
 
-    // ✅ Duration picker for click bonuses
     function chooseClickBonus(amount) {
       const select = amount === 5
         ? document.getElementById("bonus5Duration")
@@ -134,7 +112,7 @@
       if (duration === 0) {
         sessionStorage.setItem("clickBonusAmount", amount);
         sessionStorage.removeItem("clickBonusExpiration");
-        alert(`✅ +${amount} clicks per click (infinite for this session)!`);
+        alert(`✅ +${amount} clicks per click (infinite this session)!`);
       } else {
         sessionStorage.setItem("clickBonusAmount", amount);
         sessionStorage.setItem("clickBonusExpiration", Date.now() + duration);
@@ -143,25 +121,36 @@
     }
 
     function applyBackground() {
-      const purchased = localStorage.getItem("backgroundPurchased") === "true";
-      if (!purchased) return alert("❌ You must buy the background feature first!");
-
+      if (localStorage.getItem("backgroundPurchased") !== "true") return alert("❌ Buy the background first!");
       const selected = document.getElementById("bgSelect").value;
       localStorage.setItem("selectedBackground", selected);
-      document.body.style.backgroundImage = selected === "none" 
+      document.body.style.backgroundImage = selected === "none"
         ? "url('https://th.bing.com/th/id/OIP.sOvyBWSIX6YhVGKVRtOIpQHaEK?w=299&h=150&c=6&o=7&pid=1.7&rm=3')"
         : selected;
-      alert("✅ Background applied! Return to the game to see it.");
+      alert("✅ Background applied!");
     }
 
-    function goBack() {
-      window.location.href = "index.html";
-    }
+    function goBack() { window.location.href = "index.html"; }
 
-    // ✅ Button event listeners
-    document.getElementById("buyAutoClicker").addEventListener("click", () => buyItem("autoClicker", 0));
-    document.getElementById("buyPlus5").addEventListener("click", () => buyItem("plus5", 0));
-    document.getElementById("buyPlus10").addEventListener("click", () => buyItem("plus10", 0));
+    // Event listeners with updated costs
+    document.getElementById("buyAutoClicker").addEventListener("click", () => buyItem("autoClicker", 5000));
+
+    document.getElementById("buyPlus5").addEventListener("click", () => {
+      const duration = parseInt(document.getElementById("bonus5Duration").value);
+      let cost = duration === 600000 ? 800
+               : duration === 1800000 ? 1500
+               : 4000; // infinite
+      buyItem("plus5", cost);
+    });
+
+    document.getElementById("buyPlus10").addEventListener("click", () => {
+      const duration = parseInt(document.getElementById("bonus10Duration").value);
+      let cost = duration === 600000 ? 1800
+               : duration === 1800000 ? 2600
+               : 6500; // infinite
+      buyItem("plus10", cost);
+    });
+
     document.getElementById("buyBackground").addEventListener("click", () => buyItem("background", 0));
     document.getElementById("applyBackground").addEventListener("click", applyBackground);
     document.getElementById("goBack").addEventListener("click", goBack);
@@ -210,5 +199,6 @@
       border-radius: 10px;
     }
   </style>
+
 </body>
 </html>
