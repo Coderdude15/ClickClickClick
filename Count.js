@@ -67,7 +67,7 @@ function checkMilestones() {
 }
 
 function Add() {
-  let clickAmount = 20000000; // base clicks
+  let clickAmount = 2; // base clicks
 
   const bonusAmount = parseInt(sessionStorage.getItem("clickBonusAmount")) || 0;
   const bonusExpiration = parseInt(sessionStorage.getItem("clickBonusExpiration")) || 0;
@@ -203,4 +203,3 @@ function scheduleMultiplyButton() {
 }
 
 scheduleMultiplyButton();
-
