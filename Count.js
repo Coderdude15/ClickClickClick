@@ -66,26 +66,22 @@ function checkMilestones() {
   updateHighScore();
 }
 
-// ✅ FIXED ADD FUNCTION (session-only bonus)
 function Add() {
-  let clickAmount = 2; // base clicks
+  let clickAmount = 20000000; // base clicks
 
-  // Check for active bonus stored in sessionStorage
   const bonusAmount = parseInt(sessionStorage.getItem("clickBonusAmount")) || 0;
   const bonusExpiration = parseInt(sessionStorage.getItem("clickBonusExpiration")) || 0;
 
-  if (bonusAmount > 0 && Date.now() < bonusExpiration) {
+  if (bonusAmount > 0 && (bonusExpiration === 0 || Date.now() < bonusExpiration)) {
     clickAmount += bonusAmount;
   } else if (bonusAmount > 0 && Date.now() >= bonusExpiration) {
-    // Bonus expired
-    alert("⏰ Your click bonus has expired!");
+    alert("⏰ Your click bonus expired!");
     sessionStorage.removeItem("clickBonusAmount");
     sessionStorage.removeItem("clickBonusExpiration");
   }
 
   Count += clickAmount;
   CurrentScore += clickAmount;
-
   CountText.innerText = Count;
   CurrentScoreCount.innerText = CurrentScore;
 
@@ -93,6 +89,7 @@ function Add() {
   updateHighScore();
   checkMilestones();
 }
+
 
 function X() {
   Count = Math.floor(Count * 1.2);
