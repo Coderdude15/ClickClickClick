@@ -18,24 +18,22 @@
 
   <div class="shop-item">
     <h3>+5 Clicks per Click</h3>
-    <p>Cost depends on duration</p>
     <label>Duration:</label>
     <select id="bonus5Duration">
-      <option value="600000">10 Minutes</option>
-      <option value="1800000">30 Minutes</option>
-      <option value="0">Infinite (for this session)</option>
+      <option value="600000">10 Minutes (costs 800)</option>
+      <option value="1800000">30 Minutes (costs 1500)</option>
+      <option value="0">Infinite (for this session) (costs 4000)</option>
     </select>
     <button id="buyPlus5">Buy</button>
   </div>
 
   <div class="shop-item">
     <h3>+10 Clicks per Click</h3>
-    <p>Cost depends on duration</p>
     <label>Duration:</label>
     <select id="bonus10Duration">
-      <option value="600000">10 Minutes</option>
-      <option value="1800000">30 Minutes</option>
-      <option value="0">Infinite (for this session)</option>
+      <option value="600000">10 Minutes (costs 1800)</option>
+      <option value="1800000">30 Minutes (costs 2600)</option>
+      <option value="0">Infinite (for this session) (costs 6500)</option>
     </select>
     <button id="buyPlus10">Buy</button>
   </div>
@@ -50,6 +48,7 @@
     <h3>Choose a Background</h3>
     <select id="bgSelect">
       <option value="none">Default</option>
+      <!-- Background options omitted for brevity -->
     </select>
     <button id="applyBackground">Apply Background</button>
   </div>
@@ -66,6 +65,10 @@
       }
 
       setInitialBackground();
+
+      // Initialize displayed costs
+      updateBonusCost(5);
+      updateBonusCost(10);
     });
 
     function setInitialBackground() {
@@ -75,8 +78,10 @@
         : "url('https://th.bing.com/th/id/OIP.sOvyBWSIX6YhVGKVRtOIpQHaEK?w=299&h=150&c=6&o=7&pid=1.7&rm=3')";
     }
 
-    function buyItem(itemName, cost) {
+    function buyItem(itemName) {
       let currentScore = parseInt(localStorage.getItem("gameScore")) || 0;
+      let cost = getCost(itemName);
+
       if (currentScore < cost) return alert("❌ Not enough points!");
 
       currentScore -= cost;
@@ -102,6 +107,17 @@
       }
     }
 
+    function getCost(itemName) {
+      if (itemName === "plus5") {
+        const duration = parseInt(document.getElementById("bonus5Duration").value);
+        return duration === 600000 ? 800 : duration === 1800000 ? 1500 : 4000;
+      } else if (itemName === "plus10") {
+        const duration = parseInt(document.getElementById("bonus10Duration").value);
+        return duration === 600000 ? 1800 : duration === 1800000 ? 2600 : 6500;
+      } else if (itemName === "autoClicker") return 5000;
+      return 0;
+    }
+
     function chooseClickBonus(amount) {
       const select = amount === 5
         ? document.getElementById("bonus5Duration")
@@ -120,6 +136,21 @@
       }
     }
 
+    function updateBonusCost(amount) {
+      let select = amount === 5 ? document.getElementById("bonus5Duration") : document.getElementById("bonus10Duration");
+      let display = amount === 5 ? document.getElementById("bonus5Cost") : document.getElementById("bonus10Cost");
+      const duration = parseInt(select.value);
+
+      let cost;
+      if (amount === 5) {
+        cost = duration === 600000 ? 800 : duration === 1800000 ? 1500 : 4000;
+      } else {
+        cost = duration === 600000 ? 1800 : duration === 1800000 ? 2600 : 6500;
+      }
+
+      display.innerText = `Cost: ${cost} points`;
+    }
+
     function applyBackground() {
       if (localStorage.getItem("backgroundPurchased") !== "true") return alert("❌ Buy the background first!");
       const selected = document.getElementById("bgSelect").value;
@@ -132,28 +163,15 @@
 
     function goBack() { window.location.href = "index.html"; }
 
-    // Event listeners with updated costs
-    document.getElementById("buyAutoClicker").addEventListener("click", () => buyItem("autoClicker", 5000));
-
-    document.getElementById("buyPlus5").addEventListener("click", () => {
-      const duration = parseInt(document.getElementById("bonus5Duration").value);
-      let cost = duration === 600000 ? 800
-               : duration === 1800000 ? 1500
-               : 4000; // infinite
-      buyItem("plus5", cost);
-    });
-
-    document.getElementById("buyPlus10").addEventListener("click", () => {
-      const duration = parseInt(document.getElementById("bonus10Duration").value);
-      let cost = duration === 600000 ? 1800
-               : duration === 1800000 ? 2600
-               : 6500; // infinite
-      buyItem("plus10", cost);
-    });
-
-    document.getElementById("buyBackground").addEventListener("click", () => buyItem("background", 0));
+    document.getElementById("buyAutoClicker").addEventListener("click", () => buyItem("autoClicker"));
+    document.getElementById("buyPlus5").addEventListener("click", () => buyItem("plus5"));
+    document.getElementById("buyPlus10").addEventListener("click", () => buyItem("plus10"));
+    document.getElementById("buyBackground").addEventListener("click", () => buyItem("background"));
     document.getElementById("applyBackground").addEventListener("click", applyBackground);
     document.getElementById("goBack").addEventListener("click", goBack);
+
+    document.getElementById("bonus5Duration").addEventListener("change", () => updateBonusCost(5));
+    document.getElementById("bonus10Duration").addEventListener("change", () => updateBonusCost(10));
   </script>
 
   <style>
