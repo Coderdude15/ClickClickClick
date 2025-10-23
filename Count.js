@@ -4,157 +4,126 @@ let CountText = document.getElementById("Count");
 let CurrentScoreCount = document.getElementById("CurrentScoreCounter");
 let HighScoreCount = document.getElementById("HighScoreCounter");
 let XSound = document.getElementById("multiplySound");
+let bgMusic = document.getElementById("bgMusic");
 
-// Start with Multiply button hidden
 XBtn.style.display = "none";
 
 let Count = 0;
 let CurrentScore = 0;
 let HighScore = 0;
 
-// Load high score from localStorage
-function loadHighScore() {
-    const savedScore = parseInt(localStorage.getItem("HighScore")) || 0;
-    const savedTimestamp = parseInt(localStorage.getItem("HighScoreTimestamp")) || 0;
-    const now = Date.now();
+window.addEventListener("load", () => {
+  const cameFromNav = localStorage.getItem("navigating") === "true";
 
-    const oneWeek = 7 * 24 * 60 * 60 * 1000;
+  if (cameFromNav) {
+    // Don't reset — just continue score
+    CurrentScore = parseInt(localStorage.getItem("CurrentScore")) || 0;
+    Count = CurrentScore;
+  } else {
+    // Reset on full reload
+    CurrentScore = 0;
+    Count = 0;
+    localStorage.setItem("CurrentScore", 0);
+  }
 
-    if (now - savedTimestamp > oneWeek) {
-        // Reset high score if it's older than a week
-        HighScore = 0;
-        localStorage.setItem("HighScore", 0);
-        localStorage.setItem("HighScoreTimestamp", now.toString());
-    } else {
-        HighScore = savedScore;
-    }
+  localStorage.removeItem("navigating"); // Reset flag
+  CountText.innerText = Count;
+  CurrentScoreCount.innerText = CurrentScore;
 
-    HighScoreCount.innerText = HighScore;
+  HighScore = parseInt(localStorage.getItem("HighScore")) || 0;
+  HighScoreCount.innerText = HighScore;
+
+  // Apply background if any
+  const bg = localStorage.getItem("selectedBackground");
+  if (bg && bg !== "none") {
+    document.body.style.backgroundImage = bg;
+  } else {
+    // fallback background
+    document.body.style.backgroundImage = "url('https://cdn.wallpapersafari.com/56/21/bLkiQv.jpg')";
+  }
+  document.body.style.backgroundSize = "cover";
+  document.body.style.backgroundPosition = "center";
+
+});
+
+
+function saveScore() {
+  localStorage.setItem("CurrentScore", CurrentScore);
 }
 
 function updateHighScore() {
-    if (CurrentScore > HighScore) {
-        HighScore = CurrentScore;
-        HighScoreCount.innerText = HighScore;
-        localStorage.setItem("HighScore", HighScore.toString());
-        localStorage.setItem("HighScoreTimestamp", Date.now().toString());
-    }
+  if (CurrentScore > HighScore) {
+    HighScore = CurrentScore;
+    localStorage.setItem("HighScore", HighScore);
+  }
+  HighScoreCount.innerText = HighScore;
 }
 
 function Add() {
-    Count += 2;
-    CountText.innerText = Count;
-    CurrentScore += 2;
-    CurrentScoreCount.innerText = CurrentScore;
-    updateHighScore();
+  Count += 2;
+  CountText.innerText = Count;
+  CurrentScore += 2;
+  CurrentScoreCount.innerText = CurrentScore;
+  saveScore();
+  updateHighScore();
 }
 
 function X() {
-    Count *= 1.2;
-    CountText.innerText = Math.floor(Count);
-    CurrentScore *= 1.2;
-    CurrentScoreCount.innerText = Math.floor(CurrentScore);
-    updateHighScore();
+  Count *= 1.2;
+  Count = Math.floor(Count);
+  CurrentScore = Math.floor(CurrentScore * 1.2);
+  CountText.innerText = Count;
+  CurrentScoreCount.innerText = CurrentScore;
+  saveScore();
+  updateHighScore();
 }
 
-// Run on page load
-loadHighScore();
+// Background music toggle
+let isMusicPlaying = false;
+document.addEventListener("click", () => bgMusic.play().catch(() => {}), { once: true });
 
-function handleScoreSubmit() {
-    const username = document.getElementById("usernameInput").value.trim();
-    const status = document.getElementById("submitStatus");
-
-    console.log("Submitting score...");
-
-    if (!username) {
-        status.textContent = "Please enter a name.";
-        return;
-    }
-
-    submitScore(username, CurrentScore);
-    status.textContent = "Score submitted!";
-    document.getElementById("usernameInput").value = "";
+function toggleMusic() {
+  isMusicPlaying ? bgMusic.pause() : bgMusic.play();
+  isMusicPlaying = !isMusicPlaying;
 }
 
-// Sound element
+// Multiply timer system
+const timerDisplay = document.getElementById("multiplyTimer");
 const multiplySound = document.getElementById("multiplySound");
 
-// ✅ Unlock sound on first user interaction
-document.addEventListener("click", () => {
-    multiplySound.play().then(() => {
-        multiplySound.pause();
-        multiplySound.currentTime = 0;
-    }).catch((e) => {
-        console.warn("Initial sound unlock failed:", e);
-    });
-}, { once: true });
-
-// Timer display element
-const timerDisplay = document.getElementById("multiplyTimer");
-
-let countdownInterval;
-
-// Utility: Get random time in milliseconds between min and max minutes
-function getRandomMinutesInMs(minMinutes, maxMinutes) {
-    const min = minMinutes * 60 * 1000;
-    const max = maxMinutes * 60 * 1000;
-    return Math.floor(Math.random() * (max - min + 1)) + min;
+function getRandomMinutesInMs(min, max) {
+  return (Math.floor(Math.random() * (max - min + 1)) + min) * 60 * 1000;
 }
-
-// Utility: Get random time in milliseconds between min and max seconds
-function getRandomSecondsInMs(minSeconds, maxSeconds) {
-    const min = minSeconds * 1000;
-    const max = maxSeconds * 1000;
-    return Math.floor(Math.random() * (max - min + 1)) + min;
+function getRandomSecondsInMs(min, max) {
+  return (Math.floor(Math.random() * (max - min + 1)) + min) * 1000;
 }
-
-// Utility: Convert milliseconds to mm:ss format
 function formatTime(ms) {
-    const totalSeconds = Math.floor(ms / 1000);
-    const minutes = Math.floor(totalSeconds / 60);
-    const seconds = totalSeconds % 60;
-    return `${minutes}m ${seconds < 10 ? '0' : ''}${seconds}s`;
+  const totalSec = Math.floor(ms / 1000);
+  return `${Math.floor(totalSec / 60)}m ${String(totalSec % 60).padStart(2, "0")}s`;
 }
 
-// Main loop to toggle Multiply button visibility
 function scheduleMultiplyButton() {
-    const delayToShow = getRandomMinutesInMs(5, 10); // 5–10 min
-    let remainingTime = delayToShow;
+  const delay = getRandomMinutesInMs(5, 10);
+  let remaining = delay;
 
-    // Update timer every second
-    countdownInterval = setInterval(() => {
-        remainingTime -= 1000;
-        if (remainingTime <= 0) {
-            clearInterval(countdownInterval);
-        } else {
-            timerDisplay.textContent = `Multiply in: ${formatTime(remainingTime)}`;
-        }
-    }, 1000);
+  const countdown = setInterval(() => {
+    remaining -= 1000;
+    if (remaining <= 0) clearInterval(countdown);
+    else timerDisplay.textContent = `Multiply in: ${formatTime(remaining)}`;
+  }, 1000);
 
+  setTimeout(() => {
+    XBtn.style.display = "inline-block";
+    clearInterval(countdown);
+    timerDisplay.textContent = "Multiply available!";
+    multiplySound.play().catch(() => {});
+
+    const visibleDuration = getRandomSecondsInMs(5, 8);
     setTimeout(() => {
-        // Show button
-        XBtn.style.display = "inline-block";
-        clearInterval(countdownInterval);
-        timerDisplay.textContent = "Multiply is available!";
-        console.log("🔔 Multiply button SHOWN!");
-
-        // ✅ Play the multiply sound
-        multiplySound.play().catch((e) => {
-            console.warn("Multiply sound could not play:", e);
-        });
-
-        const visibleDuration = getRandomSecondsInMs(10, 15); // 10–15 sec
-
-        setTimeout(() => {
-            // Hide button again
-            XBtn.style.display = "none";
-            console.log("❌ Multiply button HIDDEN.");
-
-            // Schedule next appearance
-            scheduleMultiplyButton();
-        }, visibleDuration);
-    }, delayToShow);
+      XBtn.style.display = "none";
+      scheduleMultiplyButton();
+    }, visibleDuration);
+  }, delay);
 }
-
-// Start the multiply button cycle
 scheduleMultiplyButton();
+
