@@ -34,11 +34,10 @@
 
   <script>
   window.addEventListener("load", () => {
-  localStorage.setItem("gameScore", "0");
-  localStorage.setItem("lastRewardScore", "0");
-});
+    localStorage.setItem("gameScore", "0");
+    localStorage.setItem("lastRewardScore", "0");
+  });
 
-  
   function goToShop() {
     localStorage.setItem("navigating", "true");
     window.location.href = "shop.html";
@@ -50,13 +49,38 @@
   }
   </script>
 
-
   <h2>Submit your score</h2>
   <input type="text" id="usernameInput" placeholder="Enter username" />
   <button onclick="handleScoreSubmit()">Submit Score</button>
   <p id="submitStatus"></p>
 
   <script src="Count.js"></script>
+
+  <script>
+  function handleScoreSubmit() {
+    const usernameInput = document.getElementById('usernameInput');
+    const submitStatus = document.getElementById('submitStatus');
+    const username = usernameInput.value.trim();
+
+    if (!username) {
+      submitStatus.textContent = "Please enter a username.";
+      return;
+    }
+
+    const score = parseInt(localStorage.getItem("CurrentScore")) || 0;
+
+    db.ref('leaderboard').push({
+      username: username,
+      score: score,
+      timestamp: Date.now()
+    }).then(() => {
+      submitStatus.textContent = "Score submitted successfully!";
+      usernameInput.value = '';
+    }).catch((error) => {
+      submitStatus.textContent = "Error submitting score: " + error.message;
+    });
+  }
+  </script>
 
   <!-- Firebase setup -->
   <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
