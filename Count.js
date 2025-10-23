@@ -14,38 +14,27 @@ let HighScore = 0;
 
 window.addEventListener("load", () => {
   const cameFromNav = localStorage.getItem("navigating") === "true";
-
   if (cameFromNav) {
-    // Don't reset — just continue score
     CurrentScore = parseInt(localStorage.getItem("CurrentScore")) || 0;
     Count = CurrentScore;
   } else {
-    // Reset on full reload
     CurrentScore = 0;
     Count = 0;
     localStorage.setItem("CurrentScore", 0);
+    localStorage.setItem("lastRewardScore", "0");
   }
-
-  localStorage.removeItem("navigating"); // Reset flag
+  localStorage.removeItem("navigating");
   CountText.innerText = Count;
   CurrentScoreCount.innerText = CurrentScore;
-
   HighScore = parseInt(localStorage.getItem("HighScore")) || 0;
   HighScoreCount.innerText = HighScore;
 
-  // Apply background if any
   const bg = localStorage.getItem("selectedBackground");
-  if (bg && bg !== "none") {
-    document.body.style.backgroundImage = bg;
-  } else {
-    // fallback background
-    document.body.style.backgroundImage = "url('https://cdn.wallpapersafari.com/56/21/bLkiQv.jpg')";
-  }
+  if (bg && bg !== "none") document.body.style.backgroundImage = bg;
+  else document.body.style.backgroundImage = "url('https://cdn.wallpapersafari.com/56/21/bLkiQv.jpg')";
   document.body.style.backgroundSize = "cover";
   document.body.style.backgroundPosition = "center";
-
 });
-
 
 function saveScore() {
   localStorage.setItem("CurrentScore", CurrentScore);
@@ -59,26 +48,93 @@ function updateHighScore() {
   HighScoreCount.innerText = HighScore;
 }
 
-function Add() {
-  Count += 2;
+function checkMilestones() {
+  let lastReward = parseInt(localStorage.getItem("lastRewardScore")) || 0;
+  const milestoneStep = 50000000;
+  while (CurrentScore >= lastReward + milestoneStep) {
+    lastReward += milestoneStep;
+    CurrentScore += 500;
+    Count += 500;
+    let shopPoints = parseInt(localStorage.getItem("gameScore")) || 0;
+    shopPoints += 500;
+    localStorage.setItem("gameScore", shopPoints);
+  }
+  localStorage.setItem("lastRewardScore", lastReward);
   CountText.innerText = Count;
-  CurrentScore += 2;
   CurrentScoreCount.innerText = CurrentScore;
   saveScore();
   updateHighScore();
 }
 
+// ✅ FIXED ADD FUNCTION (session-only bonus)
+function Add() {
+  let clickAmount = 2; // base clicks
+
+  // Check for active bonus stored in sessionStorage
+  const bonusAmount = parseInt(sessionStorage.getItem("clickBonusAmount")) || 0;
+  const bonusExpiration = parseInt(sessionStorage.getItem("clickBonusExpiration")) || 0;
+
+  if (bonusAmount > 0 && Date.now() < bonusExpiration) {
+    clickAmount += bonusAmount;
+  } else if (bonusAmount > 0 && Date.now() >= bonusExpiration) {
+    // Bonus expired
+    alert("⏰ Your click bonus has expired!");
+    sessionStorage.removeItem("clickBonusAmount");
+    sessionStorage.removeItem("clickBonusExpiration");
+  }
+
+  Count += clickAmount;
+  CurrentScore += clickAmount;
+
+  CountText.innerText = Count;
+  CurrentScoreCount.innerText = CurrentScore;
+
+  saveScore();
+  updateHighScore();
+  checkMilestones();
+}
+
 function X() {
-  Count *= 1.2;
-  Count = Math.floor(Count);
+  Count = Math.floor(Count * 1.2);
   CurrentScore = Math.floor(CurrentScore * 1.2);
   CountText.innerText = Count;
   CurrentScoreCount.innerText = CurrentScore;
   saveScore();
   updateHighScore();
+  checkMilestones();
 }
 
-// Background music toggle
+function startAutoClicker() {
+  let clicksPerSecond = 52876;
+  const duration = 15000;
+  const baseAdd = 5287;
+
+  alert("🤖 Auto Clicker activated for 15 seconds!");
+
+  const interval = setInterval(() => {
+    Count += baseAdd;
+    CurrentScore += baseAdd;
+    CountText.innerText = Count;
+    CurrentScoreCount.innerText = CurrentScore;
+    saveScore();
+    updateHighScore();
+    checkMilestones();
+  }, 1000 / clicksPerSecond);
+
+  setTimeout(() => {
+    clearInterval(interval);
+    alert("🕓 Auto Clicker expired!");
+  }, duration);
+}
+
+window.addEventListener("load", () => {
+  const autoClickerPending = localStorage.getItem("autoClickerPending") === "true";
+  if (autoClickerPending) {
+    localStorage.removeItem("autoClickerPending");
+    startAutoClicker();
+  }
+});
+
 let isMusicPlaying = false;
 document.addEventListener("click", () => bgMusic.play().catch(() => {}), { once: true });
 
@@ -87,43 +143,67 @@ function toggleMusic() {
   isMusicPlaying = !isMusicPlaying;
 }
 
-// Multiply timer system
+// ✅ FIXED BUY CLICK BONUS (session-only)
+function buyClickBonus(amount, durationMs, cost) {
+  if (CurrentScore >= cost) {
+    CurrentScore -= cost;
+    CountText.innerText = Count;
+    CurrentScoreCount.innerText = CurrentScore;
+
+    // Store the bonus only in sessionStorage (clears on refresh/close)
+    sessionStorage.setItem("clickBonusAmount", amount);
+    sessionStorage.setItem("clickBonusExpiration", Date.now() + durationMs);
+
+    alert(`Bonus +${amount} clicks per press activated for ${durationMs / 1000}s!`);
+  } else {
+    alert("Not enough points!");
+  }
+
+  saveScore();
+}
+
+// --- Multiply Timer System ---
 const timerDisplay = document.getElementById("multiplyTimer");
 const multiplySound = document.getElementById("multiplySound");
 
-function getRandomMinutesInMs(min, max) {
-  return (Math.floor(Math.random() * (max - min + 1)) + min) * 60 * 1000;
+function getRandomMinutes(min, max) {
+  return Math.floor(Math.random() * (max - min + 1)) + min;
 }
-function getRandomSecondsInMs(min, max) {
-  return (Math.floor(Math.random() * (max - min + 1)) + min) * 1000;
-}
+
 function formatTime(ms) {
-  const totalSec = Math.floor(ms / 1000);
-  return `${Math.floor(totalSec / 60)}m ${String(totalSec % 60).padStart(2, "0")}s`;
+  const totalSec = Math.ceil(ms / 1000);
+  const min = Math.floor(totalSec / 60);
+  const sec = totalSec % 60;
+  return `${min}m ${sec.toString().padStart(2, "0")}s`;
 }
 
 function scheduleMultiplyButton() {
-  const delay = getRandomMinutesInMs(5, 10);
-  let remaining = delay;
+  const minutesDelay = getRandomMinutes(5, 10);
+  const delayMs = minutesDelay * 60 * 1000;
+  let remaining = delayMs;
 
   const countdown = setInterval(() => {
-    remaining -= 1000;
-    if (remaining <= 0) clearInterval(countdown);
-    else timerDisplay.textContent = `Multiply in: ${formatTime(remaining)}`;
+    if (remaining <= 0) {
+      clearInterval(countdown);
+    } else {
+      timerDisplay.textContent = `Multiply in: ${formatTime(remaining)}`;
+      remaining -= 1000;
+    }
   }, 1000);
 
   setTimeout(() => {
     XBtn.style.display = "inline-block";
-    clearInterval(countdown);
-    timerDisplay.textContent = "Multiply available!";
     multiplySound.play().catch(() => {});
+    timerDisplay.textContent = "Multiply available!";
+    clearInterval(countdown);
 
-    const visibleDuration = getRandomSecondsInMs(5, 8);
+    const visibleDuration = (Math.floor(Math.random() * 4) + 5) * 1000;
     setTimeout(() => {
       XBtn.style.display = "none";
       scheduleMultiplyButton();
     }, visibleDuration);
-  }, delay);
+  }, delayMs);
 }
+
 scheduleMultiplyButton();
 
