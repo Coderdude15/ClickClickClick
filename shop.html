@@ -54,21 +54,16 @@
   <button onclick="goBack()">⬅️ Back to Game</button>
 
   <script>
-    let currentScore = parseInt(localStorage.getItem("CurrentScore")) || 0;
-    document.getElementById("playerPoints").innerText = currentScore;
-
-    // Set initial background on load
-    function setInitialBackground() {
-      let bg = localStorage.getItem("selectedBackground");
-      if (!bg || bg === "none") {
-        // Set default background (your original image)
-        document.body.style.backgroundImage = "url('https://th.bing.com/th/id/OIP.sOvyBWSIX6YhVGKVRtOIpQHaEK?w=299&h=150&c=6&o=7&pid=1.7&rm=3')";
-      } else {
-        document.body.style.backgroundImage = bg;
-      }
-    }
-
+    // Reset gameScore and lastRewardScore on load to start fresh
     window.addEventListener("load", () => {
+      localStorage.setItem("gameScore", "0");
+      localStorage.setItem("lastRewardScore", "0");
+
+      // Initialize score and last rewarded milestone from localStorage (after reset, so 0)
+      let currentScore = parseInt(localStorage.getItem("gameScore")) || 0;
+      document.getElementById("playerPoints").innerText = currentScore;
+
+      // Show background picker if purchased
       const purchased = localStorage.getItem("backgroundPurchased") === "true";
       if (purchased) {
         document.getElementById("bgPicker").style.display = "block";
@@ -76,7 +71,7 @@
         document.getElementById("bgPicker").style.display = "none";
       }
 
-      const score = parseFloat(localStorage.getItem("CurrentScore")) || 0;
+      const score = parseFloat(localStorage.getItem("gameScore")) || 0;
 
       // Unlock thresholds for backgrounds:
       if (score >= 50000000000000000000000000000000) {
@@ -102,10 +97,26 @@
       setInitialBackground();
     });
 
+    // No automatic points gain on click; only reward for 50 million milestones
+    // currentScore is read from localStorage and updated only via rewards
+
+    // Set initial background on load
+    function setInitialBackground() {
+      let bg = localStorage.getItem("selectedBackground");
+      if (!bg || bg === "none") {
+        // Set default background (your original image)
+        document.body.style.backgroundImage = "url('https://th.bing.com/th/id/OIP.sOvyBWSIX6YhVGKVRtOIpQHaEK?w=299&h=150&c=6&o=7&pid=1.7&rm=3')";
+      } else {
+        document.body.style.backgroundImage = bg;
+      }
+    }
+
     function buyItem(itemName, cost) {
+      let currentScore = parseInt(localStorage.getItem("gameScore")) || 0;
+
       if (currentScore >= cost) {
         currentScore -= cost;
-        localStorage.setItem("CurrentScore", currentScore);
+        localStorage.setItem("gameScore", currentScore);
         document.getElementById("playerPoints").innerText = currentScore;
 
         let inventory = JSON.parse(localStorage.getItem("Inventory")) || [];
@@ -136,9 +147,8 @@
 
     function activateAutoClicker() {
       const interval = setInterval(() => {
-        let score = parseInt(localStorage.getItem("CurrentScore")) || 0;
-        score += 35;
-        localStorage.setItem("CurrentScore", score);
+        // Just updating display from localStorage, no points added here
+        let score = parseInt(localStorage.getItem("gameScore")) || 0;
         document.getElementById("playerPoints").innerText = score;
       }, 25);
       setTimeout(() => clearInterval(interval), 15000);
