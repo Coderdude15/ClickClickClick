@@ -20,9 +20,9 @@
     <h3>+5 Clicks per Click</h3>
     <label>Duration:</label>
     <select id="bonus5Duration">
-      <option value="600000">10 Minutes (costs 800)</option>
-      <option value="1800000">30 Minutes (costs 1500)</option>
-      <option value="0">Infinite (for this session) (costs 4000)</option>
+      <option value="600000" data-cost="800">10 Minutes (800 points)</option>
+      <option value="1800000" data-cost="1500">30 Minutes (1500 points)</option>
+      <option value="0" data-cost="4000">Infinite (for this session) (4000 points)</option>
     </select>
     <button id="buyPlus5">Buy</button>
   </div>
@@ -31,9 +31,9 @@
     <h3>+10 Clicks per Click</h3>
     <label>Duration:</label>
     <select id="bonus10Duration">
-      <option value="600000">10 Minutes (costs 1800)</option>
-      <option value="1800000">30 Minutes (costs 2600)</option>
-      <option value="0">Infinite (for this session) (costs 6500)</option>
+      <option value="600000" data-cost="1800">10 Minutes (1800 points)</option>
+      <option value="1800000" data-cost="2600">30 Minutes (2600 points)</option>
+      <option value="0" data-cost="6500">Infinite (for this session) (6500 points)</option>
     </select>
     <button id="buyPlus10">Buy</button>
   </div>
@@ -47,8 +47,13 @@
   <div id="bgPicker" style="display:none; margin-top: 20px;">
     <h3>Choose a Background</h3>
     <select id="bgSelect">
-      <option value="none">Default</option>
-      <!-- Background options omitted for brevity -->
+      <option value="url('https://th.bing.com/th/id/OIP.sOvyBWSIX6YhVGKVRtOIpQHaEK?w=299&h=150&c=6&o=7&pid=1.7&rm=3')" data-requirement="0">Default Background</option>
+      <option value="url('https://th.bing.com/th/id/R.4844312b1079ee0b6bd1cd8f90bfbb60?rik=ApGEZ%2fi7yZDeLA&riu=http%3a%2f%2fwww.pixelstalk.net%2fwp-content%2fuploads%2f2016%2f08%2fSuper-cool-picture-backgrounds.jpg&ehk=sgEHfm4fVk4HT36alHTZyd8CFpN6JO%2bToNd%2berN5HZE%3d&risl=&pid=ImgRaw&r=0')" data-requirement="500000000000000000000000000000000">Lake Night Background (Earn 500 Nonillon points)</option>
+      <option value="url('https://www.bing.com/th/id/OIP.YEGV8vCvIHciU0l99VtgEgHaEK?w=245&h=211&c=8&rs=1&qlt=90&o=6&pid=3.1&rm=2')" data-requirement="20000000">Forest Background (Earn 20M points)</option>
+      <option value="url('https://www.bing.com/th/id/OIP.QrTu35Ro2fZqkf9Usvp8tgHaEo?w=247&h=211&c=8&rs=1&qlt=90&o=6&pid=3.1&rm=2')" data-requirement="30000000">City Night Background (Earn 30M points)</option>
+      <option value="url('https://wallpaperaccess.com/full/1128330.jpg')" data-requirement="40000000">Beach Background (Earn 40M points)</option>
+      <option value="url('https://th.bing.com/th/id/R.4d600e55c5e68eb06230eadc2b1f4456?rik=9pn4t%2brnIT9Y3g&riu=http%3a%2f%2fwallpapercave.com%2fwp%2fgbpDqB4.jpg&ehk=F%2fONuAxUrv61DbmF729rI3uHE5sy1SjQMr5jgyIO5g4%3d&risl=&pid=ImgRaw&r=0')" data-requirement="5000000">Horse Background (Earn 5M points)</option>
+      <option value="url('https://th.bing.com/th/id/OIP.RbpZKrr4epbKZVfgugBp5QHaEo?w=248&h=180&c=7&r=0&o=7&pid=1.7&rm=3')" data-requirement="6000000">Space Background (Earn 6M points)</option>
     </select>
     <button id="applyBackground">Apply Background</button>
   </div>
@@ -65,10 +70,6 @@
       }
 
       setInitialBackground();
-
-      // Initialize displayed costs
-      updateBonusCost(5);
-      updateBonusCost(10);
     });
 
     function setInitialBackground() {
@@ -80,7 +81,16 @@
 
     function buyItem(itemName) {
       let currentScore = parseInt(localStorage.getItem("gameScore")) || 0;
-      let cost = getCost(itemName);
+
+      let cost = 0;
+      if (itemName === "plus5") {
+        const select = document.getElementById("bonus5Duration");
+        cost = parseInt(select.selectedOptions[0].dataset.cost);
+      } else if (itemName === "plus10") {
+        const select = document.getElementById("bonus10Duration");
+        cost = parseInt(select.selectedOptions[0].dataset.cost);
+      } else if (itemName === "autoClicker") cost = 5000;
+      else if (itemName === "background") cost = 0;
 
       if (currentScore < cost) return alert("❌ Not enough points!");
 
@@ -107,17 +117,6 @@
       }
     }
 
-    function getCost(itemName) {
-      if (itemName === "plus5") {
-        const duration = parseInt(document.getElementById("bonus5Duration").value);
-        return duration === 600000 ? 800 : duration === 1800000 ? 1500 : 4000;
-      } else if (itemName === "plus10") {
-        const duration = parseInt(document.getElementById("bonus10Duration").value);
-        return duration === 600000 ? 1800 : duration === 1800000 ? 2600 : 6500;
-      } else if (itemName === "autoClicker") return 5000;
-      return 0;
-    }
-
     function chooseClickBonus(amount) {
       const select = amount === 5
         ? document.getElementById("bonus5Duration")
@@ -136,24 +135,17 @@
       }
     }
 
-    function updateBonusCost(amount) {
-      let select = amount === 5 ? document.getElementById("bonus5Duration") : document.getElementById("bonus10Duration");
-      let display = amount === 5 ? document.getElementById("bonus5Cost") : document.getElementById("bonus10Cost");
-      const duration = parseInt(select.value);
-
-      let cost;
-      if (amount === 5) {
-        cost = duration === 600000 ? 800 : duration === 1800000 ? 1500 : 4000;
-      } else {
-        cost = duration === 600000 ? 1800 : duration === 1800000 ? 2600 : 6500;
-      }
-
-      display.innerText = `Cost: ${cost} points`;
-    }
-
     function applyBackground() {
       if (localStorage.getItem("backgroundPurchased") !== "true") return alert("❌ Buy the background first!");
-      const selected = document.getElementById("bgSelect").value;
+      const selectedOption = document.getElementById("bgSelect").selectedOptions[0];
+      const requirement = parseInt(selectedOption.dataset.requirement);
+      const currentScore = parseInt(localStorage.getItem("gameScore")) || 0;
+
+      if (currentScore < requirement) {
+        return alert(`❌ You need ${requirement} points to unlock this background!`);
+      }
+
+      const selected = selectedOption.value;
       localStorage.setItem("selectedBackground", selected);
       document.body.style.backgroundImage = selected === "none"
         ? "url('https://th.bing.com/th/id/OIP.sOvyBWSIX6YhVGKVRtOIpQHaEK?w=299&h=150&c=6&o=7&pid=1.7&rm=3')"
@@ -169,9 +161,6 @@
     document.getElementById("buyBackground").addEventListener("click", () => buyItem("background"));
     document.getElementById("applyBackground").addEventListener("click", applyBackground);
     document.getElementById("goBack").addEventListener("click", goBack);
-
-    document.getElementById("bonus5Duration").addEventListener("change", () => updateBonusCost(5));
-    document.getElementById("bonus10Duration").addEventListener("change", () => updateBonusCost(10));
   </script>
 
   <style>
