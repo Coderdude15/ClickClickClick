@@ -33,6 +33,12 @@
   <h1 class="LeaderboardText">Click here to see <a href="#" onclick="goToLeaderboard()">Leaderboard</a></h1>
 
   <script>
+  window.addEventListener("load", () => {
+  localStorage.setItem("gameScore", "0");
+  localStorage.setItem("lastRewardScore", "0");
+});
+
+  
   function goToShop() {
     localStorage.setItem("navigating", "true");
     window.location.href = "shop.html";
