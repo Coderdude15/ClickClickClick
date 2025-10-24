@@ -31,6 +31,8 @@
   <button id="ToggleBtn" class="ToggleBtn" onclick="toggleMusic()">Toggle Music</button>
   <button onclick="goToShop()" class="ShopBtn">🛒 Open Shop</button>
   <h1 class="LeaderboardText">Click here to see <a href="#" onclick="goToLeaderboard()">Leaderboard</a></h1>
+  <button id="MultiplayerBtn" class="MultiplayerBtn" onclick="goToMultiplayer()">Multiplayer</button>
+
 
   <script>
   window.addEventListener("load", () => {
@@ -47,6 +49,12 @@
     localStorage.setItem("navigating", "true");
     window.location.href = "Leaderboard.html";
   }
+
+  function goToMultiplayer() {
+    localStorage.setItem("navigating", "true");
+    window.location.href = "multiplayer.html";
+  }
+  
   </script>
 
   <h2>Submit your score</h2>
