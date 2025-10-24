@@ -4,10 +4,14 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Multiplayer Duel</title>
-  <link rel="stylesheet" href="style.css" />
 </head>
 <body>
   <h1 id="modeTitle">🌐 Multiplayer Duel</h1>
+
+  <!-- Rank Badges -->
+  <div id="playerRankBadge" class="rankBadge left">🏅 Unranked</div>
+  <div id="opponentRankBadge" class="rankBadge right">🏅 Waiting...</div>
+
   <p id="status">Connecting...</p>
 
   <!-- Duel layout -->
@@ -16,23 +20,26 @@
       <h2 id="yourName">You</h2>
       <p>Score: <span id="playerScore">0</span></p>
     </div>
-
     <div id="vsText">VS</div>
-
     <div id="opponentSide" class="scorePanel">
       <h2 id="opponentName">Waiting...</h2>
       <p>Score: <span id="opponentScore">0</span></p>
     </div>
   </div>
 
-  <!-- Action Buttons -->
+  <!-- Buttons -->
   <div class="buttons">
-    <button id="AddBtn" class="AddBtn">Add</button>
-    <button id="XBtn" class="XBtn" style="display:none;">Multiply</button>
-    <div id="multiplyTimer" style="margin-top:15px; font-size:24px; font-weight:bold;">Multiply in: calculating...</div>
+    <button id="AddBtn">Add</button>
+    <button id="XBtn" style="display:none;">Multiply ✖️</button>
+    <div id="multiplyTimer" style="margin-top:15px;font-size:20px;font-weight:bold;">Multiply in: calculating...</div>
   </div>
 
-  <button id="LeaveBtn" class="LeaveBtn" onclick="leaveRoom()">⬅️ Leave</button>
+  <button id="LeaveBtn">⬅️ Leave</button>
+
+  <!-- Rank Animation Overlay -->
+  <div id="rankAnimation" class="hidden">
+    <div id="rankAnimText"></div>
+  </div>
 
   <!-- Sound -->
   <audio id="multiplySound" src="ding-36029.mp3" preload="auto"></audio>
@@ -43,7 +50,7 @@
   <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-auth-compat.js"></script>
 
   <script>
-  // ---------- FIREBASE SETUP ----------
+  // ---------- FIREBASE CONFIG ----------
   const firebaseConfig = {
     apiKey: "AIzaSyC0lC1S6unGubGU6fQcgvd0qnOYz_pGa_Q",
     authDomain: "leaderboard-65f6e.firebaseapp.com",
@@ -53,113 +60,48 @@
     messagingSenderId: "515120673437",
     appId: "1:515120673437:web:63e2df3edc463bdfdd9a74"
   };
-
   firebase.initializeApp(firebaseConfig);
   const db = firebase.database();
 
   // ---------- VARIABLES ----------
-  let mode = localStorage.getItem("multiplayerMode") || "casual";
+  const mode = localStorage.getItem("multiplayerMode") || "casual";
   let playerName = prompt("Enter your username:") || "Guest" + Math.floor(Math.random() * 1000);
-  let playerRef;
-  let roomRef;
+  let uid = null;
+  let roomRef = null;
   let playerScore = 0;
   let opponentName = "";
   let opponentScore = 0;
+  let opponentJoined = false;
+  let matchEnded = false;
 
-  document.getElementById("modeTitle").textContent =
-    mode === "ranked" ? "🔥 Ranked Duel" : "😎 Casual Duel";
-
-  // ---------- AUTH + ROOM MATCHING ----------
-  firebase.auth().signInAnonymously().then(() => {
-    const lobbyRef = db.ref(`multiplayer/${mode}/lobby`);
-
-    lobbyRef.once("value").then(snapshot => {
-      const lobbyPlayers = snapshot.val() || {};
-      const available = Object.keys(lobbyPlayers);
-
-      if (available.length === 0) {
-        // 🟢 No one waiting — create room
-        const roomId = "room_" + Math.floor(Math.random() * 100000);
-        roomRef = db.ref(`multiplayer/${mode}/rooms/${roomId}`);
-        roomRef.child("player1").set({ name: playerName, score: 0 });
-        lobbyRef.child(playerName).set({ roomId });
-        roomRef.onDisconnect().remove();
-        lobbyRef.child(playerName).onDisconnect().remove();
-        document.getElementById("status").textContent = "Waiting for opponent...";
-      } else {
-        // 🟢 Someone is waiting — join their room
-        const opponentLobbyName = available[0];
-        const oppRoomId = lobbyPlayers[opponentLobbyName].roomId;
-        roomRef = db.ref(`multiplayer/${mode}/rooms/${oppRoomId}`);
-        roomRef.child("player2").set({ name: playerName, score: 0 });
-        db.ref(`multiplayer/${mode}/lobby/${opponentLobbyName}`).remove();
-        document.getElementById("status").textContent = "Opponent found!";
-      }
-
-      // 🔄 Listen for room updates
-      roomRef.on("value", snap => {
-        const data = snap.val();
-        if (!data) return;
-
-        const p1 = data.player1 || {};
-        const p2 = data.player2 || {};
-
-        // Determine who is who
-        if (p1.name === playerName) {
-          opponentName = p2.name || "Waiting...";
-          opponentScore = p2.score || 0;
-          playerScore = p1.score || 0;
-        } else {
-          opponentName = p1.name || "Waiting...";
-          opponentScore = p1.score || 0;
-          playerScore = p2.score || 0;
-        }
-
-        // Update UI
-        document.getElementById("yourName").textContent = playerName;
-        document.getElementById("playerScore").textContent = playerScore;
-        document.getElementById("opponentName").textContent = opponentName;
-        document.getElementById("opponentScore").textContent = opponentScore;
-
-        if (opponentName !== "Waiting...") {
-          document.getElementById("status").textContent = "Match Live!";
-        }
-
-        // Check win condition
-        if (mode === "ranked" && playerScore >= 100000) {
-          alert("🏆 YOU WIN!");
-          leaveRoom();
-        }
-      });
-    });
-  });
-
-  // ---------- ADD BUTTON ----------
-  document.getElementById("AddBtn").addEventListener("click", () => {
-    playerScore += 1;
-    updateScore();
-  });
-
-  function updateScore() {
-    document.getElementById("playerScore").textContent = playerScore;
-    if (roomRef) {
-      roomRef.once("value").then(snap => {
-        const data = snap.val();
-        if (!data) return;
-
-        if (data.player1 && data.player1.name === playerName)
-          roomRef.child("player1/score").set(playerScore);
-        else if (data.player2 && data.player2.name === playerName)
-          roomRef.child("player2/score").set(playerScore);
-      });
-    }
-  }
-
-  // ---------- MULTIPLY SYSTEM ----------
+  const AddBtn = document.getElementById("AddBtn");
   const XBtn = document.getElementById("XBtn");
+  const LeaveBtn = document.getElementById("LeaveBtn");
   const multiplyTimer = document.getElementById("multiplyTimer");
   const multiplySound = document.getElementById("multiplySound");
 
+  document.getElementById("modeTitle").textContent = mode === "ranked" ? "🔥 Ranked Duel" : "😎 Casual Duel";
+
+  // ---------- BUTTON HANDLERS ----------
+  AddBtn.onclick = () => {
+    playerScore++;
+    updateScore();
+  };
+
+  XBtn.onclick = () => {
+    playerScore = Math.floor(playerScore * 1.2);
+    updateScore();
+  };
+
+  LeaveBtn.onclick = () => {
+    if (mode === "ranked" && opponentJoined && !matchEnded) {
+      alert("You cannot leave during a ranked match!");
+      return;
+    }
+    leaveRoom();
+  };
+
+  // ---------- MULTIPLY LOGIC ----------
   function getRandomSeconds(min, max) {
     return Math.floor(Math.random() * (max - min + 1)) + min;
   }
@@ -174,7 +116,6 @@
   function scheduleMultiplyButton() {
     const delaySec = getRandomSeconds(30, 60);
     let remaining = delaySec * 1000;
-
     const countdown = setInterval(() => {
       if (remaining <= 0) clearInterval(countdown);
       else {
@@ -188,7 +129,6 @@
       multiplySound.play().catch(()=>{});
       multiplyTimer.textContent = "Multiply available!";
       clearInterval(countdown);
-
       const visibleDuration = getRandomSeconds(2, 5) * 1000;
       setTimeout(() => {
         XBtn.style.display = "none";
@@ -196,23 +136,193 @@
       }, visibleDuration);
     }, delaySec * 1000);
   }
-
-  XBtn.addEventListener("click", () => {
-    playerScore = Math.floor(playerScore * 1.2);
-    updateScore();
-  });
-
   scheduleMultiplyButton();
 
-  // ---------- LEAVE ----------
-  function leaveRoom() {
-    if (roomRef) roomRef.remove();
-    window.location.href = "multiplayer.html";
+  // ---------- ROOM + MATCH LOGIC ----------
+  firebase.auth().signInAnonymously().then((userCredential) => {
+    uid = userCredential.user.uid;
+    console.log("Signed in anonymously ✅", uid);
+
+    // Rank setup
+    const rankRef = db.ref(`ranks/${uid}`);
+    rankRef.once("value").then(snap => {
+      if (!snap.exists()) {
+        rankRef.set({ name: playerName, rankPoints: 0, rank: "Unranked" });
+      }
+      updateRankBadge();
+    });
+
+    const lobbyRef = db.ref(`multiplayer/${mode}/lobby`);
+
+    lobbyRef.once("value").then(snapshot => {
+      const lobbyPlayers = snapshot.val() || {};
+      const available = Object.keys(lobbyPlayers).filter(id => id !== uid);
+
+      if (available.length === 0) {
+        // Create new room
+        const roomId = "room_" + Math.floor(Math.random() * 100000);
+        roomRef = db.ref(`multiplayer/${mode}/rooms/${roomId}`);
+        roomRef.set({
+          player1: { uid, name: playerName, score: 0 }
+        });
+        lobbyRef.child(uid).set({ name: playerName, roomId });
+        roomRef.onDisconnect().remove();
+        lobbyRef.child(uid).onDisconnect().remove();
+        document.getElementById("status").textContent = "Waiting for opponent...";
+      } else {
+        // Join existing room
+        const oppUid = available[0];
+        const oppRoomId = lobbyPlayers[oppUid].roomId;
+        roomRef = db.ref(`multiplayer/${mode}/rooms/${oppRoomId}`);
+        roomRef.update({
+          player2: { uid, name: playerName, score: 0 }
+        });
+        lobbyRef.child(oppUid).remove();
+        document.getElementById("status").textContent = "Opponent found!";
+      }
+
+      // Listen for room updates
+      roomRef.on("value", snap => {
+        const data = snap.val();
+        if (!data) return;
+
+        const p1 = data.player1 || {};
+        const p2 = data.player2 || {};
+
+        if (p1.uid === uid) {
+          opponentName = p2.name || "Waiting...";
+          opponentScore = p2.score || 0;
+          playerScore = p1.score || 0;
+        } else {
+          opponentName = p1.name || "Waiting...";
+          opponentScore = p1.score || 0;
+          playerScore = p2.score || 0;
+        }
+
+        document.getElementById("yourName").textContent = playerName;
+        document.getElementById("playerScore").textContent = playerScore;
+        document.getElementById("opponentName").textContent = opponentName;
+        document.getElementById("opponentScore").textContent = opponentScore;
+
+        if (opponentName !== "Waiting...") {
+          document.getElementById("status").textContent = "Match Live!";
+          opponentJoined = true;
+          updateOpponentRank();
+        }
+
+        if (mode === "ranked" && playerScore >= 100000) {
+          handleMatchEnd(true);
+        }
+      });
+    });
+  });
+
+  // ---------- UPDATE SCORE ----------
+  function updateScore() {
+    if (!roomRef || matchEnded) return;
+    roomRef.once("value").then(snap => {
+      const data = snap.val();
+      if (!data) return;
+      if (data.player1 && data.player1.uid === uid)
+        roomRef.child("player1/score").set(playerScore);
+      else if (data.player2 && data.player2.uid === uid)
+        roomRef.child("player2/score").set(playerScore);
+    });
   }
+
+  // ---------- RANK FUNCTIONS ----------
+  function getRankFromPoints(points) {
+    if (points < 1000) return "Bronze";
+    if (points < 2000) return "Silver";
+    if (points < 3000) return "Gold";
+    if (points < 4000) return "Platinum";
+    if (points < 5000) return "Diamond";
+    if (points < 6000) return "Elite";
+    if (points < 7000) return "Sentinel";
+    return "Iridescent";
+  }
+
+  function handleMatchEnd(won) {
+    matchEnded = true;
+    const rankRef = db.ref(`ranks/${uid}`);
+    rankRef.once("value").then(snap => {
+      let data = snap.val() || { rankPoints: 0, rank: "Unranked" };
+      const diff = Math.abs(playerScore - opponentScore);
+      const baseGain = Math.min(300, Math.max(50, diff / 2));
+      const delta = won ? baseGain : -(baseGain / 1.2);
+      const oldRank = data.rank;
+      data.rankPoints = Math.max(0, data.rankPoints + delta);
+      data.rank = getRankFromPoints(data.rankPoints);
+      rankRef.update(data);
+      showRankAnimation(oldRank, data.rank, delta);
+      setTimeout(() => leaveRoom(), 5000);
+    });
+  }
+
+  function updateRankBadge() {
+    const badge = document.getElementById("playerRankBadge");
+    db.ref(`ranks/${uid}`).on("value", snap => {
+      const data = snap.val();
+      badge.textContent = `🏅 ${data?.rank || "Unranked"}`;
+    });
+  }
+
+  function updateOpponentRank() {
+    const badge = document.getElementById("opponentRankBadge");
+    if (!opponentName || opponentName === "Waiting...") {
+      badge.textContent = "🏅 Waiting...";
+      return;
+    }
+    // Search ranks for opponent by name
+    db.ref(`ranks`).once("value").then(snap => {
+      const ranks = snap.val() || {};
+      let found = Object.values(ranks).find(r => r.name === opponentName);
+      badge.textContent = `🏅 ${found?.rank || "Unranked"}`;
+    });
+  }
+
+  function showRankAnimation(oldRank, newRank, delta) {
+    const anim = document.getElementById("rankAnimation");
+    const text = document.getElementById("rankAnimText");
+    const percentChange = Math.round((Math.abs(delta) / 1000) * 100) / 10;
+    if (delta > 0) {
+      text.innerHTML = `🏆 <b>RANK UP!</b><br>+${percentChange}% → ${newRank}`;
+      text.style.color = "lime";
+    } else {
+      text.innerHTML = `💔 <b>RANK DOWN...</b><br>-${percentChange}% → ${newRank}`;
+      text.style.color = "red";
+    }
+    anim.classList.remove("hidden");
+    setTimeout(() => anim.classList.add("hidden"), 4000);
+  }
+
+  // ---------- LEAVE ROOM ----------
+  function leaveRoom() {
+    if (roomRef) roomRef.off();
+    db.ref(`multiplayer/${mode}/lobby/${uid}`).remove();
+    LeaveBtn.disabled = true;
+    document.getElementById("status").textContent = "You left the room.";
+    
+    setTimeout(() => {
+      window.location.href = "index.html";
+    }, 1000);
+  }
+
   </script>
 
   <style>
-    body {
+  body { font-family: sans-serif; text-align:center; }
+  .buttons { margin: 20px; }
+  #duelContainer { display:flex; justify-content:center; margin:20px; align-items:center; }
+  .scorePanel { margin: 0 20px; }
+  #vsText { font-size: 24px; font-weight:bold; }
+  .rankBadge { font-size:16px; margin:10px; display:inline-block; }
+  .rankBadge.left { float:left; }
+  .rankBadge.right { float:right; }
+  #rankAnimation { position:fixed; top:50%; left:50%; transform:translate(-50%,-50%); font-size:32px; font-weight:bold; background:rgba(0,0,0,0.7); color:white; padding:20px; border-radius:10px; }
+  .hidden { display:none; }
+
+  body {
       color: aqua;
       text-align: center;
       background-image: url("https://cdn.wallpapersafari.com/56/21/bLkiQv.jpg");
@@ -260,7 +370,7 @@
     }
 
     #XBtn {
-      background-color: gold;
+      background-color: aqua;
     }
 
     #LeaveBtn {
@@ -276,6 +386,8 @@
       font-size: 1.2rem;
       cursor: pointer;
     }
+  
+  
   </style>
 </body>
 </html>
