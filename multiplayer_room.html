@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Multiplayer Duel</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <h1 id="modeTitle">🌐 Multiplayer Duel</h1>
+  <p id="status">Connecting...</p>
+
+  <!-- Duel layout -->
+  <div id="duelContainer">
+    <div id="playerSide" class="scorePanel">
+      <h2 id="yourName">You</h2>
+      <p>Score: <span id="playerScore">0</span></p>
+    </div>
+
+    <div id="vsText">VS</div>
+
+    <div id="opponentSide" class="scorePanel">
+      <h2 id="opponentName">Waiting...</h2>
+      <p>Score: <span id="opponentScore">0</span></p>
+    </div>
+  </div>
+
+  <!-- Action Buttons -->
+  <div class="buttons">
+    <button id="AddBtn" class="AddBtn">Add</button>
+    <button id="XBtn" class="XBtn" style="display:none;">Multiply ✖️</button>
+    <div id="multiplyTimer" style="margin-top:15px; font-size:24px; font-weight:bold;">Multiply in: calculating...</div>
+  </div>
+
+  <button id="LeaveBtn" class="LeaveBtn" onclick="leaveRoom()">⬅️ Leave</button>
+
+  <!-- Sound -->
+  <audio id="multiplySound" src="ding-36029.mp3" preload="auto"></audio>
+
+  <!-- Firebase -->
+  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-database-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-auth-compat.js"></script>
+
+  <script>
+  // ---------- FIREBASE SETUP ----------
+  const firebaseConfig = {
+    apiKey: "AIzaSyC0lC1S6unGubGU6fQcgvd0qnOYz_pGa_Q",
+    authDomain: "leaderboard-65f6e.firebaseapp.com",
+    databaseURL: "https://leaderboard-65f6e-default-rtdb.firebaseio.com",
+    projectId: "leaderboard-65f6e",
+    storageBucket: "leaderboard-65f6e.firebasestorage.appspot.com",
+    messagingSenderId: "515120673437",
+    appId: "1:515120673437:web:63e2df3edc463bdfdd9a74"
+  };
+
+  firebase.initializeApp(firebaseConfig);
+  const db = firebase.database();
+
+  // ---------- VARIABLES ----------
+  let mode = localStorage.getItem("multiplayerMode") || "casual";
+  let playerName = prompt("Enter your username:") || "Guest" + Math.floor(Math.random() * 1000);
+  let playerRef;
+  let roomRef;
+  let playerScore = 0;
+  let opponentName = "";
+  let opponentScore = 0;
+
+  document.getElementById("modeTitle").textContent =
+    mode === "ranked" ? "🔥 Ranked Duel" : "😎 Casual Duel";
+
+  // ---------- AUTH + ROOM MATCHING ----------
+  firebase.auth().signInAnonymously().then(() => {
+    const lobbyRef = db.ref(`multiplayer/${mode}/lobby`);
+
+    lobbyRef.once("value").then(snapshot => {
+      const lobbyPlayers = snapshot.val() || {};
+      const available = Object.keys(lobbyPlayers);
+
+      if (available.length === 0) {
+        // 🟢 No one waiting — create room
+        const roomId = "room_" + Math.floor(Math.random() * 100000);
+        roomRef = db.ref(`multiplayer/${mode}/rooms/${roomId}`);
+        roomRef.child("player1").set({ name: playerName, score: 0 });
+        lobbyRef.child(playerName).set({ roomId });
+        roomRef.onDisconnect().remove();
+        lobbyRef.child(playerName).onDisconnect().remove();
+        document.getElementById("status").textContent = "Waiting for opponent...";
+      } else {
+        // 🟢 Someone is waiting — join their room
+        const opponentLobbyName = available[0];
+        const oppRoomId = lobbyPlayers[opponentLobbyName].roomId;
+        roomRef = db.ref(`multiplayer/${mode}/rooms/${oppRoomId}`);
+        roomRef.child("player2").set({ name: playerName, score: 0 });
+        db.ref(`multiplayer/${mode}/lobby/${opponentLobbyName}`).remove();
+        document.getElementById("status").textContent = "Opponent found!";
+      }
+
+      // 🔄 Listen for room updates
+      roomRef.on("value", snap => {
+        const data = snap.val();
+        if (!data) return;
+
+        const p1 = data.player1 || {};
+        const p2 = data.player2 || {};
+
+        // Determine who is who
+        if (p1.name === playerName) {
+          opponentName = p2.name || "Waiting...";
+          opponentScore = p2.score || 0;
+          playerScore = p1.score || 0;
+        } else {
+          opponentName = p1.name || "Waiting...";
+          opponentScore = p1.score || 0;
+          playerScore = p2.score || 0;
+        }
+
+        // Update UI
+        document.getElementById("yourName").textContent = playerName;
+        document.getElementById("playerScore").textContent = playerScore;
+        document.getElementById("opponentName").textContent = opponentName;
+        document.getElementById("opponentScore").textContent = opponentScore;
+
+        if (opponentName !== "Waiting...") {
+          document.getElementById("status").textContent = "Match Live!";
+        }
+
+        // Check win condition
+        if (mode === "ranked" && playerScore >= 100000) {
+          alert("🏆 YOU WIN!");
+          leaveRoom();
+        }
+      });
+    });
+  });
+
+  // ---------- ADD BUTTON ----------
+  document.getElementById("AddBtn").addEventListener("click", () => {
+    playerScore += 1;
+    updateScore();
+  });
+
+  function updateScore() {
+    document.getElementById("playerScore").textContent = playerScore;
+    if (roomRef) {
+      roomRef.once("value").then(snap => {
+        const data = snap.val();
+        if (!data) return;
+
+        if (data.player1 && data.player1.name === playerName)
+          roomRef.child("player1/score").set(playerScore);
+        else if (data.player2 && data.player2.name === playerName)
+          roomRef.child("player2/score").set(playerScore);
+      });
+    }
+  }
+
+  // ---------- MULTIPLY SYSTEM ----------
+  const XBtn = document.getElementById("XBtn");
+  const multiplyTimer = document.getElementById("multiplyTimer");
+  const multiplySound = document.getElementById("multiplySound");
+
+  function getRandomSeconds(min, max) {
+    return Math.floor(Math.random() * (max - min + 1)) + min;
+  }
+
+  function formatTime(ms) {
+    const sec = Math.ceil(ms / 1000);
+    const m = Math.floor(sec / 60);
+    const s = sec % 60;
+    return `${m > 0 ? m + "m " : ""}${s}s`;
+  }
+
+  function scheduleMultiplyButton() {
+    const delaySec = getRandomSeconds(30, 60);
+    let remaining = delaySec * 1000;
+
+    const countdown = setInterval(() => {
+      if (remaining <= 0) clearInterval(countdown);
+      else {
+        multiplyTimer.textContent = `Multiply in: ${formatTime(remaining)}`;
+        remaining -= 1000;
+      }
+    }, 1000);
+
+    setTimeout(() => {
+      XBtn.style.display = "inline-block";
+      multiplySound.play().catch(()=>{});
+      multiplyTimer.textContent = "Multiply available!";
+      clearInterval(countdown);
+
+      const visibleDuration = getRandomSeconds(2, 5) * 1000;
+      setTimeout(() => {
+        XBtn.style.display = "none";
+        scheduleMultiplyButton();
+      }, visibleDuration);
+    }, delaySec * 1000);
+  }
+
+  XBtn.addEventListener("click", () => {
+    playerScore = Math.floor(playerScore * 1.2);
+    updateScore();
+  });
+
+  scheduleMultiplyButton();
+
+  // ---------- LEAVE ----------
+  function leaveRoom() {
+    if (roomRef) roomRef.remove();
+    window.location.href = "multiplayer.html";
+  }
+  </script>
+
+  <style>
+    body {
+      color: aqua;
+      text-align: center;
+      background-image: url("https://cdn.wallpapersafari.com/56/21/bLkiQv.jpg");
+      background-size: cover;
+      background-repeat: no-repeat;
+      background-position: center;
+      background-attachment: fixed;
+      font-family: sans-serif;
+    }
+
+    #duelContainer {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin: 40px;
+    }
+
+    .scorePanel {
+      width: 40%;
+      border: 2px solid aqua;
+      padding: 20px;
+      border-radius: 10px;
+      background-color: rgba(0,0,0,0.6);
+    }
+
+    #vsText {
+      font-size: 2.5rem;
+      font-weight: bold;
+      color: gold;
+    }
+
+    .buttons {
+      margin-top: 30px;
+    }
+
+    #AddBtn, #XBtn {
+      background-color: aqua;
+      border: none;
+      padding: 15px 30px;
+      border-radius: 10px;
+      cursor: pointer;
+      font-size: 1.5rem;
+      color: black;
+      margin: 10px;
+    }
+
+    #XBtn {
+      background-color: gold;
+    }
+
+    #LeaveBtn {
+      position: fixed;
+      bottom: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      background-color: #00ffff;
+      color: black;
+      border: none;
+      border-radius: 10px;
+      padding: 10px 20px;
+      font-size: 1.2rem;
+      cursor: pointer;
+    }
+  </style>
+</body>
+</html>
