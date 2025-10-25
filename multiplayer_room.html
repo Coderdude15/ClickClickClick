@@ -103,6 +103,19 @@
     leaveRoom();
   };
 
+  function updateScore() {
+    if (!roomRef || matchEnded) return;
+    roomRef.once("value").then(snap => {
+      const data = snap.val();
+      if (!data) return;
+      if (data.player1 && data.player1.uid === uid)
+        roomRef.child("player1/score").set(playerScore);
+      else if (data.player2 && data.player2.uid === uid)
+        roomRef.child("player2/score").set(playerScore);
+    });
+  }
+
+
   // ---------- MULTIPLY LOGIC ----------
   function getRandomSeconds(min, max) {
     return Math.floor(Math.random() * (max - min + 1)) + min;
