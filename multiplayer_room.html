@@ -41,8 +41,10 @@
     <div id="rankAnimText"></div>
   </div>
 
-  <!-- Sound -->
+  <!-- Sounds -->
   <audio id="multiplySound" src="ding-36029.mp3" preload="auto"></audio>
+  <audio id="rankUpSound" src="rank-up.mp3" preload="auto"></audio>
+  <audio id="rankDownSound" src="rank-down.mp3" preload="auto"></audio>
 
   <!-- Firebase -->
   <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
@@ -143,11 +145,12 @@
     uid = userCredential.user.uid;
     console.log("Signed in anonymously ✅", uid);
 
-    // Rank setup
+    // Rank setup + seasonal reset
+    checkSeasonReset();
     const rankRef = db.ref(`ranks/${uid}`);
     rankRef.once("value").then(snap => {
       if (!snap.exists()) {
-        rankRef.set({ name: playerName, rankPoints: 0, rank: "Unranked" });
+        rankRef.set({ name: playerName, rankPoints: 0, rank: "Unranked", totalScore: 0 });
       }
       updateRankBadge();
     });
@@ -159,29 +162,22 @@
       const available = Object.keys(lobbyPlayers).filter(id => id !== uid);
 
       if (available.length === 0) {
-        // Create new room
         const roomId = "room_" + Math.floor(Math.random() * 100000);
         roomRef = db.ref(`multiplayer/${mode}/rooms/${roomId}`);
-        roomRef.set({
-          player1: { uid, name: playerName, score: 0 }
-        });
+        roomRef.set({ player1: { uid, name: playerName, score: 0 } });
         lobbyRef.child(uid).set({ name: playerName, roomId });
         roomRef.onDisconnect().remove();
         lobbyRef.child(uid).onDisconnect().remove();
         document.getElementById("status").textContent = "Waiting for opponent...";
       } else {
-        // Join existing room
         const oppUid = available[0];
         const oppRoomId = lobbyPlayers[oppUid].roomId;
         roomRef = db.ref(`multiplayer/${mode}/rooms/${oppRoomId}`);
-        roomRef.update({
-          player2: { uid, name: playerName, score: 0 }
-        });
+        roomRef.update({ player2: { uid, name: playerName, score: 0 } });
         lobbyRef.child(oppUid).remove();
         document.getElementById("status").textContent = "Opponent found!";
       }
 
-      // Listen for room updates
       roomRef.on("value", snap => {
         const data = snap.val();
         if (!data) return;
@@ -217,53 +213,113 @@
     });
   });
 
-  // ---------- UPDATE SCORE ----------
-  function updateScore() {
-    if (!roomRef || matchEnded) return;
-    roomRef.once("value").then(snap => {
-      const data = snap.val();
-      if (!data) return;
-      if (data.player1 && data.player1.uid === uid)
-        roomRef.child("player1/score").set(playerScore);
-      else if (data.player2 && data.player2.uid === uid)
-        roomRef.child("player2/score").set(playerScore);
-    });
-  }
-
-  // ---------- RANK FUNCTIONS ----------
+  // ---------- RANK SYSTEM ----------
   function getRankFromPoints(points) {
-    if (points < 1000) return "Bronze";
-    if (points < 2000) return "Silver";
-    if (points < 3000) return "Gold";
-    if (points < 4000) return "Platinum";
-    if (points < 5000) return "Diamond";
-    if (points < 6000) return "Elite";
-    if (points < 7000) return "Sentinel";
+    if (points < 30000) return "Bronze I";
+    if (points < 70000) return "Bronze II";
+    if (points < 120000) return "Bronze III";
+    if (points < 180000) return "Silver I";
+    if (points < 230000) return "Silver II";
+    if (points < 300000) return "Silver III";
+    if (points < 550000) return "Gold I";
+    if (points < 620000) return "Gold II";
+    if (points < 720000) return "Gold III";
+    if (points < 850000) return "Platinum I";
+    if (points < 1000000) return "Platinum II";
+    if (points < 1300000) return "Platinum III";
+    if (points < 1800000) return "Diamond I";
+    if (points < 2100000) return "Diamond II";
+    if (points < 2500000) return "Diamond III";
+    if (points < 3500000) return "Elite";
+    if (points < 8000000) return "Sentinel";
     return "Iridescent";
   }
 
-  function handleMatchEnd(won) {
+  // ---------- MATCH END ----------
+  async function handleMatchEnd(won) {
     matchEnded = true;
     const rankRef = db.ref(`ranks/${uid}`);
-    rankRef.once("value").then(snap => {
-      let data = snap.val() || { rankPoints: 0, rank: "Unranked" };
-      const diff = Math.abs(playerScore - opponentScore);
-      const baseGain = Math.min(300, Math.max(50, diff / 2));
-      const delta = won ? baseGain : -(baseGain / 1.2);
-      const oldRank = data.rank;
-      data.rankPoints = Math.max(0, data.rankPoints + delta);
-      data.rank = getRankFromPoints(data.rankPoints);
-      rankRef.update(data);
-      showRankAnimation(oldRank, data.rank, delta);
-      setTimeout(() => leaveRoom(), 5000);
-    });
+    const snap = await rankRef.once("value");
+    let data = snap.val() || { rankPoints: 0, rank: "Unranked", totalScore: 0 };
+
+    const diff = Math.abs(playerScore - opponentScore);
+    const baseGain = Math.min(150, Math.max(25, diff / 4));
+    let delta = won ? baseGain : -(baseGain / 1.5);
+
+    const oldRank = data.rank;
+
+    // ✅ Iridescent protection — can’t lose points or derank
+    if (oldRank === "Iridescent") delta = Math.max(delta, 0);
+
+    data.rankPoints = Math.max(0, data.rankPoints + delta);
+    data.totalScore = (data.totalScore || 0) + playerScore;
+    data.rank = getRankFromPoints(data.rankPoints);
+
+    // ✅ Prevent deranking from Iridescent
+    if (oldRank === "Iridescent") data.rank = "Iridescent";
+
+    await rankRef.update(data);
+
+    // ✅ Update Iridescent leaderboard numbers
+    if (data.rank === "Iridescent") updateIridescentRanks();
+
+    showRankAnimation(oldRank, data.rank, delta);
+    setTimeout(() => leaveRoom(), 5000);
   }
 
+  // ---------- UPDATE IRIDESCENT LEADERBOARD ----------
+  async function updateIridescentRanks() {
+    const snap = await db.ref("ranks").once("value");
+    const ranks = snap.val() || {};
+    const iridescentPlayers = Object.entries(ranks)
+      .filter(([id, d]) => d.rank === "Iridescent")
+      .sort((a, b) => (b[1].rankPoints + b[1].totalScore) - (a[1].rankPoints + a[1].totalScore));
+
+    iridescentPlayers.forEach(([id, d], index) => {
+      db.ref(`ranks/${id}`).update({ iridescentRank: index + 1 });
+    });
+
+    // Update local display for player
+    const yourData = iridescentPlayers.find(([id]) => id === uid);
+    if (yourData) {
+      const rankNum = yourData[1].iridescentRank;
+      document.getElementById("playerRankBadge").textContent = `🌈 Iridescent Rank #${rankNum}`;
+    }
+  }
+
+  // ---------- SEASON RESET EVERY 2 MONTHS ----------
+  async function checkSeasonReset() {
+    const seasonRef = db.ref("seasonInfo");
+    const snap = await seasonRef.once("value");
+    const data = snap.val() || {};
+    const now = Date.now();
+    const twoMonths = 1000 * 60 * 60 * 24 * 60;
+
+    if (!data.lastReset || now - data.lastReset > twoMonths) {
+      // Reset all ranks
+      const ranksSnap = await db.ref("ranks").once("value");
+      const ranks = ranksSnap.val() || {};
+      for (const id in ranks) {
+        db.ref(`ranks/${id}`).update({
+          rank: "Unranked",
+          rankPoints: 0,
+          iridescentRank: null,
+        });
+      }
+      seasonRef.set({ lastReset: now });
+      console.log("🎯 Rank season reset complete!");
+    }
+  }
+
+  // ---------- UPDATE RANK BADGES ----------
   function updateRankBadge() {
     const badge = document.getElementById("playerRankBadge");
     db.ref(`ranks/${uid}`).on("value", snap => {
       const data = snap.val();
-      badge.textContent = `🏅 ${data?.rank || "Unranked"}`;
+      if (data?.rank === "Iridescent" && data.iridescentRank)
+        badge.textContent = `🌈 Iridescent Rank #${data.iridescentRank}`;
+      else
+        badge.textContent = `🏅 ${data?.rank || "Unranked"}`;
     });
   }
 
@@ -273,26 +329,35 @@
       badge.textContent = "🏅 Waiting...";
       return;
     }
-    // Search ranks for opponent by name
     db.ref(`ranks`).once("value").then(snap => {
       const ranks = snap.val() || {};
       let found = Object.values(ranks).find(r => r.name === opponentName);
-      badge.textContent = `🏅 ${found?.rank || "Unranked"}`;
+      if (found?.rank === "Iridescent" && found.iridescentRank)
+        badge.textContent = `🌈 Iridescent Rank #${found.iridescentRank}`;
+      else
+        badge.textContent = `🏅 ${found?.rank || "Unranked"}`;
     });
   }
 
+  // ---------- ANIMATION ----------
   function showRankAnimation(oldRank, newRank, delta) {
     const anim = document.getElementById("rankAnimation");
     const text = document.getElementById("rankAnimText");
-    const percentChange = Math.round((Math.abs(delta) / 1000) * 100) / 10;
-    if (delta > 0) {
-      text.innerHTML = `🏆 <b>RANK UP!</b><br>+${percentChange}% → ${newRank}`;
-      text.style.color = "lime";
-    } else {
-      text.innerHTML = `💔 <b>RANK DOWN...</b><br>-${percentChange}% → ${newRank}`;
-      text.style.color = "red";
-    }
+    const gained = delta > 0;
+    const color = gained ? "lime" : "red";
+    const symbol = gained ? "⬆️" : "⬇️";
+    const action = gained ? "RANK UP!" : "RANK DOWN...";
+    const sound = document.getElementById(gained ? "rankUpSound" : "rankDownSound");
+    sound.play().catch(() => {});
+
+    text.innerHTML = `
+      <div style="animation: pulse 1s infinite; color:${color};">
+        ${symbol} <b>${action}</b><br>
+        <small>${oldRank}</small> → <b>${newRank}</b>
+      </div>
+    `;
     anim.classList.remove("hidden");
+    anim.style.opacity = 1;
     setTimeout(() => anim.classList.add("hidden"), 4000);
   }
 
@@ -302,92 +367,26 @@
     db.ref(`multiplayer/${mode}/lobby/${uid}`).remove();
     LeaveBtn.disabled = true;
     document.getElementById("status").textContent = "You left the room.";
-    
-    setTimeout(() => {
-      window.location.href = "index.html";
-    }, 1000);
+    setTimeout(() => (window.location.href = "index.html"), 1000);
   }
-
   </script>
 
   <style>
-  body { font-family: sans-serif; text-align:center; }
-  .buttons { margin: 20px; }
-  #duelContainer { display:flex; justify-content:center; margin:20px; align-items:center; }
-  .scorePanel { margin: 0 20px; }
-  #vsText { font-size: 24px; font-weight:bold; }
-  .rankBadge { font-size:16px; margin:10px; display:inline-block; }
-  .rankBadge.left { float:left; }
-  .rankBadge.right { float:right; }
-  #rankAnimation { position:fixed; top:50%; left:50%; transform:translate(-50%,-50%); font-size:32px; font-weight:bold; background:rgba(0,0,0,0.7); color:white; padding:20px; border-radius:10px; }
-  .hidden { display:none; }
-
-  body {
-      color: aqua;
-      text-align: center;
-      background-image: url("https://cdn.wallpapersafari.com/56/21/bLkiQv.jpg");
-      background-size: cover;
-      background-repeat: no-repeat;
-      background-position: center;
-      background-attachment: fixed;
-      font-family: sans-serif;
-    }
-
-    #duelContainer {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin: 40px;
-    }
-
-    .scorePanel {
-      width: 40%;
-      border: 2px solid aqua;
-      padding: 20px;
-      border-radius: 10px;
-      background-color: rgba(0,0,0,0.6);
-    }
-
-    #vsText {
-      font-size: 2.5rem;
-      font-weight: bold;
-      color: gold;
-    }
-
-    .buttons {
-      margin-top: 30px;
-    }
-
-    #AddBtn, #XBtn {
-      background-color: aqua;
-      border: none;
-      padding: 15px 30px;
-      border-radius: 10px;
-      cursor: pointer;
-      font-size: 1.5rem;
-      color: black;
-      margin: 10px;
-    }
-
-    #XBtn {
-      background-color: aqua;
-    }
-
-    #LeaveBtn {
-      position: fixed;
-      bottom: 20px;
-      left: 50%;
-      transform: translateX(-50%);
-      background-color: #00ffff;
-      color: black;
-      border: none;
-      border-radius: 10px;
-      padding: 10px 20px;
-      font-size: 1.2rem;
-      cursor: pointer;
-    }
-  
-  
+    body { font-family: sans-serif; text-align:center; color:aqua;
+      background-image:url("https://cdn.wallpapersafari.com/56/21/bLkiQv.jpg");
+      background-size:cover; background-repeat:no-repeat; background-position:center; background-attachment:fixed; }
+    .buttons { margin:20px; }
+    #duelContainer { display:flex; justify-content:center; margin:20px; align-items:center; }
+    .scorePanel { margin:0 20px; width:40%; border:2px solid aqua; padding:20px; border-radius:10px; background:rgba(0,0,0,0.6); }
+    #vsText { font-size:2.5rem; font-weight:bold; color:gold; }
+    .rankBadge { font-size:16px; margin:10px; display:inline-block; }
+    .rankBadge.left { float:left; }
+    .rankBadge.right { float:right; }
+    #AddBtn, #XBtn { background:aqua; color:black; padding:15px 30px; border:none; border-radius:10px; cursor:pointer; margin:10px; font-size:1.5rem; }
+    #LeaveBtn { position:fixed; bottom:20px; left:50%; transform:translateX(-50%); background:#00ffff; color:black; border:none; border-radius:10px; padding:10px 20px; font-size:1.2rem; cursor:pointer; }
+    #rankAnimation { position:fixed; top:50%; left:50%; transform:translate(-50%,-50%); background:rgba(0,0,0,0.8); color:white; padding:30px 50px; border-radius:15px; font-size:2rem; font-weight:bold; z-index:9999; transition:opacity 1s ease; }
+    .hidden { display:none; }
+    @keyframes pulse { 0%{transform:scale(1);} 50%{transform:scale(1.1);} 100%{transform:scale(1);} }
   </style>
 </body>
 </html>
